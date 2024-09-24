@@ -3,24 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Question Asker Spin Wheel</title>
+    <title>Secret Santa Spin Wheel</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            height: 100vh;
             background: linear-gradient(to bottom, #8e44ad, #3498db);
             color: white;
             margin: 0;
-            padding: 20px;
         }
 
         .container {
             text-align: center;
-            max-width: 800px;
-            width: 100%;
         }
 
         h1 {
@@ -31,11 +28,9 @@
         #wheelCanvas {
             border-radius: 50%;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-            max-width: 100%;
-            height: auto;
         }
 
-        #spinButton, #addParticipantButton {
+        #spinButton {
             margin-top: 20px;
             padding: 10px 20px;
             font-size: 1.2rem;
@@ -46,7 +41,7 @@
             cursor: pointer;
         }
 
-        #spinButton:hover, #addParticipantButton:hover {
+        #spinButton:hover {
             background-color: #218838;
         }
 
@@ -61,123 +56,60 @@
             font-size: 1.8rem;
             color: #ffeb3b;
         }
-
-        #participantInput {
-            margin-top: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        #participantInput input, #participantInput select {
-            margin: 5px;
-            padding: 10px;
-            font-size: 1rem;
-            width: 200px;
-        }
-
-        #participantList {
-            margin-top: 20px;
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .participant {
-            background-color: rgba(255, 255, 255, 0.2);
-            padding: 5px 10px;
-            margin: 5px;
-            border-radius: 5px;
-        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Question Asker Spin Wheel</h1>
-    <div id="participantInput">
-        <input type="text" id="nameInput" placeholder="Enter participant name">
-        <select id="hubSelect">
-            <option value="China HQ">China HQ</option>
-            <option value="Vancouver Hub">Vancouver Hub</option>
-            <option value="Malaysia Hub">Malaysia Hub</option>
-        </select>
-        <button id="addParticipantButton">Add Participant</button>
-    </div>
-    <div id="participantList"></div>
-    <canvas id="wheelCanvas" width="600" height="600"></canvas>
+    <h1>Secret Santa Spin Wheel</h1>
+    <canvas id="wheelCanvas" width="400" height="400"></canvas>
     <br>
     <button id="spinButton">Spin</button>
     <div class="result">
-        <strong id="targetName">Spin the wheel to select a participant</strong>
-        <strong id="assignedName"></strong>
+        <p id="selectedName">Yeejian</p>
+        <strong id="targetName">Your target is: Yoshi</strong>
     </div>
 </div>
 
 <script>
     const canvas = document.getElementById('wheelCanvas');
     const ctx = canvas.getContext('2d');
-    let participants = [];
-    let currentAssignments = [];
-    let availableAssignments = [];
-    const colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#34495e'];
+    const names = ['Yoshi', 'Mario', 'Luigi', 'Peach', 'Yeejian'];
+    const colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6'];
     let currentAngle = 0;
     let spinTimeout = null;
     let spinAngleStart = 10;
     let spinTime = 0;
     let spinTimeTotal = 0;
 
-    function addParticipant() {
-        const name = document.getElementById('nameInput').value.trim();
-        const hub = document.getElementById('hubSelect').value;
-        if (name && !participants.some(p => p.name === name)) {
-            participants.push({ name, hub });
-            updateParticipantList();
-            document.getElementById('nameInput').value = '';
-            drawWheel();
-            updateAssignments();
-        } else if (participants.some(p => p.name === name)) {
-            alert("This name is already in the list. Please enter a unique name.");
-        }
-    }
-
-    function updateParticipantList() {
-        const list = document.getElementById('participantList');
-        list.innerHTML = '';
-        participants.forEach(participant => {
-            const div = document.createElement('div');
-            div.className = 'participant';
-            div.textContent = `${participant.name} (${participant.hub})`;
-            list.appendChild(div);
-        });
-    }
-
     function drawWheel() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
         const wheelRadius = canvas.width / 2;
-        const arcSize = (2 * Math.PI) / participants.length;
+        const arcSize = (2 * Math.PI) / names.length;
 
-        participants.forEach((participant, index) => {
+        names.forEach((name, index) => {
             const angle = currentAngle + index * arcSize;
 
             // Draw segment
             ctx.beginPath();
             ctx.arc(wheelRadius, wheelRadius, wheelRadius, angle, angle + arcSize);
             ctx.lineTo(wheelRadius, wheelRadius);
-            ctx.fillStyle = colors[index % colors.length];
+            ctx.fillStyle = colors[index];
             ctx.fill();
 
-            // Draw name
+            // Draw text
             ctx.save();
             ctx.translate(wheelRadius, wheelRadius);
             ctx.rotate(angle + arcSize / 2);
+
             ctx.fillStyle = "white";
-            ctx.font = 'bold 16px Arial';
+            ctx.font = 'bold 18px Arial';
             ctx.textAlign = 'center';
-            ctx.translate(wheelRadius * 0.75, 0);
-            ctx.rotate(Math.PI / 2);
-            ctx.fillText(participant.name, 0, 0);
+
+            // Adjust text position inside the segment
+            ctx.translate(wheelRadius * 0.6, 0); // Move text slightly inward
+            ctx.rotate(Math.PI / 2); // Rotate text upright
+            ctx.fillText(name, 0, 0); // Adjust the coordinates to center
+
             ctx.restore();
         });
 
@@ -190,27 +122,7 @@
         ctx.fill();
     }
 
-    function updateAssignments() {
-        availableAssignments = [];
-        participants.forEach(asker => {
-            participants.forEach(target => {
-                if (asker !== target && asker.hub !== target.hub) {
-                    availableAssignments.push({ asker, target });
-                }
-            });
-        });
-        currentAssignments = [...availableAssignments];
-    }
-
     function spin() {
-        if (participants.length < 2) {
-            alert("Please add at least 2 participants before spinning.");
-            return;
-        }
-        if (currentAssignments.length === 0) {
-            alert("All possible assignments have been made. Please add more participants or reset the game.");
-            return;
-        }
         spinAngleStart = Math.random() * 10 + 10;
         spinTime = 0;
         spinTimeTotal = Math.random() * 3000 + 4000;
@@ -231,20 +143,10 @@
 
     function stopRotateWheel() {
         clearTimeout(spinTimeout);
-        const assignment = currentAssignments.pop();
-        const selectedIndex = participants.findIndex(p => p.name === assignment.asker.name);
-        const totalAngle = currentAngle % (2 * Math.PI);
-        const arcSize = (2 * Math.PI) / participants.length;
-        const additionalRotation = (selectedIndex * arcSize) - totalAngle;
-        currentAngle += additionalRotation;
-        drawWheel();
-
-        document.getElementById('targetName').innerText = `Selected: ${assignment.asker.name} (${assignment.asker.hub})`;
-        document.getElementById('assignedName').innerText = `Asking Question To: ${assignment.target.name} (${assignment.target.hub})`;
-
-        if (currentAssignments.length === 0) {
-            document.getElementById('spinButton').disabled = true;
-        }
+        const arcSize = (2 * Math.PI) / names.length;
+        const index = Math.floor((currentAngle % (2 * Math.PI)) / arcSize);
+        const selected = names[(names.length - index) % names.length];
+        document.getElementById('targetName').innerText = `Your target is: ${selected}`;
     }
 
     function easeOut(t, b, c, d) {
@@ -254,9 +156,7 @@
     }
 
     document.getElementById('spinButton').addEventListener('click', spin);
-    document.getElementById('addParticipantButton').addEventListener('click', addParticipant);
 
-    // Initial draw
     drawWheel();
 </script>
 
