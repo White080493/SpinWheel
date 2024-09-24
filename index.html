@@ -35,7 +35,7 @@
             height: auto;
         }
 
-        #spinButton, #addParticipantButton {
+        button {
             margin-top: 20px;
             padding: 10px 20px;
             font-size: 1.2rem;
@@ -46,7 +46,7 @@
             cursor: pointer;
         }
 
-        #spinButton:hover, #addParticipantButton:hover {
+        button:hover {
             background-color: #218838;
         }
 
@@ -62,202 +62,248 @@
             color: #ffeb3b;
         }
 
-        #participantInput {
-            margin-top: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        #participantInput input, #participantInput select {
+        input, select {
             margin: 5px;
             padding: 10px;
             font-size: 1rem;
             width: 200px;
         }
 
-        #participantList {
+        table {
+            width: 100%;
             margin-top: 20px;
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
+            border-collapse: collapse;
         }
 
-        .participant {
-            background-color: rgba(255, 255, 255, 0.2);
-            padding: 5px 10px;
-            margin: 5px;
-            border-radius: 5px;
+        th, td {
+            border: 1px solid white;
+            padding: 10px;
+            text-align: left;
+        }
+
+        .screen {
+            display: none;
+        }
+
+        .active {
+            display: block;
+        }
+
+        #logoSelect {
+            margin: 10px 0;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Question Asker Spin Wheel</h1>
-    <div id="participantInput">
-        <input type="text" id="nameInput" placeholder="Enter participant name">
-        <select id="hubSelect">
-            <option value="China HQ">China HQ</option>
-            <option value="Vancouver Hub">Vancouver Hub</option>
-            <option value="Malaysia Hub">Malaysia Hub</option>
+    <!-- Team Setup Screen -->
+    <div id="teamSetup" class="screen active">
+        <h1>Team Setup</h1>
+        <input type="text" id="teamNameInput" placeholder="Enter team name">
+        
+        <!-- Logo Selection Dropdown -->
+        <select id="logoSelect">
+            <option value="" disabled selected>Select a Logo</option>
+            <option value="Malaysia">🇲🇾 Malaysia</option>
+            <option value="USA">🇺🇸 USA</option>
+            <option value="China">🇨🇳 China</option>
+            <option value="Kitty">🐱 Kitty</option>
+            <option value="Puppy">🐶 Puppy</option>
+            <option value="Duck">🦆 Duck</option>
+            <option value="Fox">🦊 Fox</option>
         </select>
-        <button id="addParticipantButton">Add Participant</button>
+
+        <button id="addTeamButton">Add Team</button>
+        <div id="teamList"></div>
+        <button id="nextToMembers">Next</button>
     </div>
-    <div id="participantList"></div>
-    <canvas id="wheelCanvas" width="600" height="600"></canvas>
-    <br>
-    <button id="spinButton">Spin</button>
-    <div class="result">
-        <strong id="targetName">Spin the wheel to select a participant</strong>
-        <strong id="assignedName"></strong>
+
+    <!-- Member Setup Screen -->
+    <div id="memberSetup" class="screen">
+        <h1>Member Setup</h1>
+        <table id="memberTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Team</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><input type="text" id="memberNameInput" placeholder="Enter member name"></td>
+                    <td>
+                        <select id="memberTeamSelect"></select>
+                    </td>
+                    <td><button id="addMemberButton">Add Member</button></td>
+                </tr>
+            </tbody>
+        </table>
+        <button id="nextToWheel">Next to Wheel</button>
+        <button id="backToTeams">Back to Team Setup</button>
+    </div>
+
+    <!-- Spin Wheel Screen -->
+    <div id="wheelScreen" class="screen">
+        <h1>Question Asker Spin Wheel</h1>
+        <canvas id="wheelCanvas" width="600" height="600"></canvas>
+        <br>
+        <button id="spinButton">Spin</button>
+        <div class="result">
+            <strong id="selectedMember"></strong>
+        </div>
+        <button id="addRemoveMember">Add/Remove Member</button>
     </div>
 </div>
 
 <script>
+    let teams = [];
+    let members = [];
+    let currentScreen = 'teamSetup';
+
+    const teamSetupScreen = document.getElementById('teamSetup');
+    const memberSetupScreen = document.getElementById('memberSetup');
+    const wheelScreen = document.getElementById('wheelScreen');
+    const teamNameInput = document.getElementById('teamNameInput');
+    const logoSelect = document.getElementById('logoSelect');
+    const addTeamButton = document.getElementById('addTeamButton');
+    const teamList = document.getElementById('teamList');
+    const nextToMembersButton = document.getElementById('nextToMembers');
+    const memberNameInput = document.getElementById('memberNameInput');
+    const memberTeamSelect = document.getElementById('memberTeamSelect');
+    const addMemberButton = document.getElementById('addMemberButton');
+    const memberTable = document.getElementById('memberTable');
+    const nextToWheelButton = document.getElementById('nextToWheel');
+    const backToTeamsButton = document.getElementById('backToTeams');
+    const spinButton = document.getElementById('spinButton');
+    const addRemoveMemberButton = document.getElementById('addRemoveMember');
     const canvas = document.getElementById('wheelCanvas');
     const ctx = canvas.getContext('2d');
-    let participants = [];
-    let currentAssignments = [];
-    let availableAssignments = [];
-    const colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#34495e'];
-    let currentAngle = 0;
-    let spinTimeout = null;
-    let spinAngleStart = 10;
-    let spinTime = 0;
-    let spinTimeTotal = 0;
 
-    function addParticipant() {
-        const name = document.getElementById('nameInput').value.trim();
-        const hub = document.getElementById('hubSelect').value;
-        if (name && !participants.some(p => p.name === name)) {
-            participants.push({ name, hub });
-            updateParticipantList();
-            document.getElementById('nameInput').value = '';
-            drawWheel();
-            updateAssignments();
-        } else if (participants.some(p => p.name === name)) {
-            alert("This name is already in the list. Please enter a unique name.");
+    // Team setup
+    addTeamButton.addEventListener('click', addTeam);
+    nextToMembersButton.addEventListener('click', () => {
+        if (teams.length === 0) {
+            alert("Please add at least one team before proceeding.");
+            return;
+        }
+        switchScreen('memberSetup');
+    });
+    backToTeamsButton.addEventListener('click', () => switchScreen('teamSetup'));
+
+    function addTeam() {
+        const teamName = teamNameInput.value.trim();
+        const logo = logoSelect.value;
+        if (teamName && logo) {
+            teams.push({ name: teamName, logo });
+            updateTeamList();
+            teamNameInput.value = '';
+            logoSelect.value = '';
+        } else {
+            alert("Please enter a team name and select a logo.");
         }
     }
 
-    function updateParticipantList() {
-        const list = document.getElementById('participantList');
-        list.innerHTML = '';
-        participants.forEach(participant => {
-            const div = document.createElement('div');
-            div.className = 'participant';
-            div.textContent = `${participant.name} (${participant.hub})`;
-            list.appendChild(div);
-        });
+    function updateTeamList() {
+        teamList.innerHTML = teams.map(team => `
+            <div>${team.name} - ${team.logo}</div>
+        `).join('');
+        updateMemberTeamSelect();
     }
+
+    // Member setup
+    addMemberButton.addEventListener('click', addMember);
+    nextToWheelButton.addEventListener('click', () => {
+        if (members.length < 2) {
+            alert("Please add at least 2 members.");
+        } else {
+            switchScreen('wheelScreen');
+        }
+    });
+
+    function updateMemberTeamSelect() {
+        memberTeamSelect.innerHTML = teams.map(team => `
+            <option value="${team.name}">${team.name}</option>
+        `).join('');
+    }
+
+    function addMember() {
+        const name = memberNameInput.value.trim();
+        const team = memberTeamSelect.value;
+        if (name && team) {
+            members.push({ name, team });
+            updateMemberTable();
+            memberNameInput.value = '';
+        } else {
+            alert("Please enter a member name and select a team.");
+        }
+    }
+
+    function updateMemberTable() {
+        const tbody = memberTable.querySelector('tbody');
+        tbody.innerHTML = members.map((member, index) => `
+            <tr>
+                <td>${member.name}</td>
+                <td>${member.team}</td>
+                <td><button onclick="removeMember(${index})">Remove</button></td>
+            </tr>
+        `).join('') + tbody.lastElementChild.outerHTML;
+    }
+
+    function removeMember(index) {
+        members.splice(index, 1);
+        updateMemberTable();
+    }
+
+    // Wheel screen
+    spinButton.addEventListener('click', spin);
+    addRemoveMemberButton.addEventListener('click', () => switchScreen('memberSetup'));
+
+    let currentAngle = 0;
+    const colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#34495e'];
 
     function drawWheel() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const wheelRadius = canvas.width / 2;
-        const arcSize = (2 * Math.PI) / participants.length;
+        const sliceAngle = (2 * Math.PI) / members.length;
 
-        participants.forEach((participant, index) => {
-            const angle = currentAngle + index * arcSize;
-
-            // Draw segment
+        members.forEach((member, i) => {
+            const angle = currentAngle + i * sliceAngle;
             ctx.beginPath();
-            ctx.arc(wheelRadius, wheelRadius, wheelRadius, angle, angle + arcSize);
-            ctx.lineTo(wheelRadius, wheelRadius);
-            ctx.fillStyle = colors[index % colors.length];
+            ctx.moveTo(canvas.width / 2, canvas.height / 2);
+            ctx.arc(canvas.width / 2, canvas.height / 2, canvas.width / 2, angle, angle + sliceAngle);
+            ctx.fillStyle = colors[i % colors.length];
             ctx.fill();
 
-            // Draw name
             ctx.save();
-            ctx.translate(wheelRadius, wheelRadius);
-            ctx.rotate(angle + arcSize / 2);
-            ctx.fillStyle = "white";
-            ctx.font = 'bold 16px Arial';
-            ctx.textAlign = 'center';
-            ctx.translate(wheelRadius * 0.75, 0);
-            ctx.rotate(Math.PI / 2);
-            ctx.fillText(participant.name, 0, 0);
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(angle + sliceAngle / 2);
+            ctx.textAlign = 'right';
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText(member.name, canvas.width / 2 - 10, 10);
             ctx.restore();
         });
-
-        // Draw the arrow
-        ctx.fillStyle = 'black';
-        ctx.beginPath();
-        ctx.moveTo(wheelRadius - 10, 10);
-        ctx.lineTo(wheelRadius + 10, 10);
-        ctx.lineTo(wheelRadius, 30);
-        ctx.fill();
-    }
-
-    function updateAssignments() {
-        availableAssignments = [];
-        participants.forEach(asker => {
-            participants.forEach(target => {
-                if (asker !== target && asker.hub !== target.hub) {
-                    availableAssignments.push({ asker, target });
-                }
-            });
-        });
-        currentAssignments = [...availableAssignments];
     }
 
     function spin() {
-        if (participants.length < 2) {
-            alert("Please add at least 2 participants before spinning.");
-            return;
-        }
-        if (currentAssignments.length === 0) {
-            alert("All possible assignments have been made. Please add more participants or reset the game.");
-            return;
-        }
-        spinAngleStart = Math.random() * 10 + 10;
-        spinTime = 0;
-        spinTimeTotal = Math.random() * 3000 + 4000;
-        rotateWheel();
-    }
-
-    function rotateWheel() {
-        spinTime += 30;
-        if (spinTime >= spinTimeTotal) {
-            stopRotateWheel();
-            return;
-        }
-        const spinAngle = spinAngleStart - easeOut(spinTime, 0, spinAngleStart, spinTimeTotal);
-        currentAngle += (spinAngle * Math.PI / 180);
-        drawWheel();
-        spinTimeout = setTimeout(rotateWheel, 30);
-    }
-
-    function stopRotateWheel() {
-        clearTimeout(spinTimeout);
-        const assignment = currentAssignments.pop();
-        const selectedIndex = participants.findIndex(p => p.name === assignment.asker.name);
-        const totalAngle = currentAngle % (2 * Math.PI);
-        const arcSize = (2 * Math.PI) / participants.length;
-        const additionalRotation = (selectedIndex * arcSize) - totalAngle;
-        currentAngle += additionalRotation;
+        const randomMember = Math.floor(Math.random() * members.length);
+        currentAngle += (Math.PI * 2 * 5) + (Math.PI * 2 * (randomMember / members.length));
         drawWheel();
 
-        document.getElementById('targetName').innerText = `Selected: ${assignment.asker.name} (${assignment.asker.hub})`;
-        document.getElementById('assignedName').innerText = `Asking Question To: ${assignment.target.name} (${assignment.target.hub})`;
+        setTimeout(() => {
+            document.getElementById('selectedMember').textContent = `Selected Member: ${members[randomMember].name}`;
+        }, 2000);
+    }
 
-        if (currentAssignments.length === 0) {
-            document.getElementById('spinButton').disabled = true;
+    function switchScreen(screenId) {
+        document.getElementById(currentScreen).classList.remove('active');
+        currentScreen = screenId;
+        document.getElementById(currentScreen).classList.add('active');
+        if (currentScreen === 'wheelScreen') {
+            drawWheel();
         }
     }
-
-    function easeOut(t, b, c, d) {
-        const ts = (t /= d) * t;
-        const tc = ts * t;
-        return b + c * (tc + -3 * ts + 3 * t);
-    }
-
-    document.getElementById('spinButton').addEventListener('click', spin);
-    document.getElementById('addParticipantButton').addEventListener('click', addParticipant);
-
-    // Initial draw
-    drawWheel();
 </script>
 
 </body>
